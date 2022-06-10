@@ -69,7 +69,7 @@ jobs:
           tileset="$(basename *.tar.xz.00 .tar.xz.00)"
           cat *.tar.xz.?? > "$tileset.tar.xz"
           ls -l *.tar.xz
-          time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_900913/14/"
+          time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_4326/14/" "$tileset/EPSG_900913/14/"
           ls -l "$tileset.tar.xz"
           mv "$tileset" public
           touch 404.html
