@@ -78,7 +78,7 @@ jobs:
           df -i .
 
       - name: Deploy to gh-pages branch as GitHub Pages
-        uses: OpenDRR/actions-gh-pages@v3
+        uses: OpenDRR/actions-gh-pages@v3-spacesaver
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./tileset/public
