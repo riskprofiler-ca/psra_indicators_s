@@ -28,6 +28,7 @@ jobs:
       - name: Maximize build space and inodes
         uses: OpenDRR/maximize-build-space@many-inodes
         with:
+          build-mount-path: /home/runner/work
           root-reserve-mb: 512
           swap-size-mb: 100
           remove-dotnet: true
