@@ -72,6 +72,7 @@ jobs:
           time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_900913/14/"
           ls -l "$tileset.tar.xz"
           mv "$tileset" public
+          touch 404.html
           ls -l public
           du -csh public
           df -h .
