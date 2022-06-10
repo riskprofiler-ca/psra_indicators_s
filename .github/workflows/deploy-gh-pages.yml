@@ -74,7 +74,8 @@ jobs:
           mv "$tileset" public
           ls -l public
           du -csh public
-          du -i public
+          df -h .
+          df -i .
 
       - name: Deploy to gh-pages branch as GitHub Pages
         uses: OpenDRR/actions-gh-pages@v3
