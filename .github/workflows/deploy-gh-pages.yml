@@ -1,0 +1,80 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency: deploy-gh-pages
+
+jobs:
+  deploy-gh-pages:
+    runs-on: ubuntu-22.04
+    if: "!contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]')"
+    env:
+      TZ: America/Vancouver
+
+    steps:
+      - run: |
+          echo "Free space before:"
+          set -x
+          pwd
+          df -h
+          df -i
+          df -h .
+          df -i .
+
+      - name: Maximize build space and inodes
+        uses: OpenDRR/maximize-build-space@many-inodes
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 100
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+
+      - run: |
+          echo "Free space after:"
+          set -x
+          pwd
+          df -h
+          df -i
+          df -h .
+          df -i .
+
+      - name: Checkout 
+        uses: actions/checkout@v3
+
+      - name: Make more room by deleting unused software
+        if: ${{ github.event_name != 'schedule' }}
+        run: |
+          set -x
+          df -h
+          sudo eatmydata rm -rf /usr/share/dotnet       # 24.1 GB
+          sudo eatmydata rm -rf /usr/local/lib/android  # 11.3 GB
+          sudo eatmydata rm -rf /opt/ghc                #  1.8 GB
+          #sudo eatmydata rm -rf /usr/share/swift        # 1.3 GB
+          #sudo eatmydata rm -rf /usr/local/graalvm      # 1.0 GB
+          df -h
+
+      - name: Extract vector tiles from archive
+        run: |
+          set -x
+          ls -l
+          tileset="$(basename *.tar.xz.00 .tar.xz.00)"
+          cat *.tar.xz.?? > "$tileset.tar.xz"
+          ls -l *.tar.xz
+          time eatmydata tar xf "$tileset.tar.xz"
+          ls -l "$tileset.tar.xz"
+          mv "$tileset" public
+          ls -l public
+          du -csh public
+          du -i public
+
+      - name: Deploy to gh-pages branch as GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          force_orphan: true
