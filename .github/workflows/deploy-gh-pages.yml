@@ -9,7 +9,7 @@ on:
 concurrency: deploy-gh-pages
 
 jobs:
-  deploy-gh-pages:
+  prepare-artifact:
     runs-on: ubuntu-22.04
     if: "!contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]')"
     env:
@@ -38,24 +38,6 @@ jobs:
           df -h
 
       - run: |
-          echo "Free space intermediate:"
-          set -x
-          pwd
-          df -h
-          df -i
-          df -h .
-          df -i .
-
-      - name: Maximize build space and inodes
-        uses: OpenDRR/maximize-build-space@many-inodes
-        with:
-          root-reserve-mb: 512
-          swap-size-mb: 100
-          remove-dotnet: true
-          remove-android: true
-          remove-haskell: true
-
-      - run: |
           echo "Free space after:"
           set -x
           pwd
@@ -66,35 +48,35 @@ jobs:
 
       - name: Checkout vector tileset
         uses: actions/checkout@v3
-        with:
-          path: tileset
 
       - name: Extract vector tiles from archive
         run: |
           set -x
           ls -l
-          cd tileset
-          ls -l
           tileset="$(basename *.tar.xz.00 .tar.xz.00)"
-          cat *.tar.xz.?? > "$tileset.tar.xz"
-          du -csh .git *.xz.??
+          cat *.tar.xz.?? > artifact.tar.xz
           rm -rf .git
           rm -f *.xz.??
-          ls -l *.tar.xz
-          time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_4326/"
-          mv "$tileset" ../public
-          cd ..
-          touch public/404.html
-          ls -l public
-          du -csh public
-          df -h .
+          unxz artifact.tar.xz
           df -i .
-          rm -rf tileset
           df -h .
 
-      - name: Deploy to gh-pages branch as GitHub Pages
-        uses: OpenDRR/actions-gh-pages@v3-spacesaver
+      - uses: actions/upload-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          force_orphan: true
+          name: github-pages
+          path: ./artifact.tar
+
+  # Deploy the artifact to GitHub pages.
+  # This is a separate job so that only actions/deploy-pages has the necessary permissions.
+  deploy-docs:
+    needs: prepare-artifact
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v1
