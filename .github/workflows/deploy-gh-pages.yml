@@ -25,6 +25,27 @@ jobs:
           df -h .
           df -i .
 
+      - name: Make more room by deleting unused software
+        if: ${{ github.event_name != 'schedule' }}
+        run: |
+          set -x
+          df -h
+          sudo eatmydata rm -rf /usr/share/dotnet       # 24.1 GB
+          sudo eatmydata rm -rf /usr/local/lib/android  # 11.3 GB
+          sudo eatmydata rm -rf /opt/ghc                #  1.8 GB
+          sudo eatmydata rm -rf /usr/share/swift        #  1.3 GB
+          sudo eatmydata rm -rf /usr/local/graalvm      #  1.0 GB
+          df -h
+
+      - run: |
+          echo "Free space intermediate:"
+          set -x
+          pwd
+          df -h
+          df -i
+          df -h .
+          df -i .
+
       - name: Maximize build space and inodes
         uses: OpenDRR/maximize-build-space@many-inodes
         with:
@@ -48,18 +69,6 @@ jobs:
         with:
           path: tileset
 
-      - name: Make more room by deleting unused software
-        if: ${{ github.event_name != 'schedule' }}
-        run: |
-          set -x
-          df -h
-          sudo eatmydata rm -rf /usr/share/dotnet       # 24.1 GB
-          sudo eatmydata rm -rf /usr/local/lib/android  # 11.3 GB
-          sudo eatmydata rm -rf /opt/ghc                #  1.8 GB
-          #sudo eatmydata rm -rf /usr/share/swift        # 1.3 GB
-          #sudo eatmydata rm -rf /usr/local/graalvm      # 1.0 GB
-          df -h
-
       - name: Extract vector tiles from archive
         run: |
           set -x
@@ -68,19 +77,24 @@ jobs:
           ls -l
           tileset="$(basename *.tar.xz.00 .tar.xz.00)"
           cat *.tar.xz.?? > "$tileset.tar.xz"
+          du -csh .git *.xz.??
+          rm -rf .git
+          rm -f *.xz.??
           ls -l *.tar.xz
-          time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_4326/14/" "$tileset/EPSG_900913/14/"
-          ls -l "$tileset.tar.xz"
-          mv "$tileset" public
-          touch 404.html
+          time eatmydata tar xf "$tileset.tar.xz" "$tileset/EPSG_4326/"
+          mv "$tileset" ../public
+          cd ..
+          touch public/404.html
           ls -l public
           du -csh public
           df -h .
           df -i .
+          rm -rf tileset
+          df -h .
 
       - name: Deploy to gh-pages branch as GitHub Pages
         uses: OpenDRR/actions-gh-pages@v3-spacesaver
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./tileset/public
+          publish_dir: ./public
           force_orphan: true
