@@ -1,0 +1,112 @@
+name: Deploy vector tiles
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: [main]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+# Default to bash
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, '[skip ci]')"
+    env:
+      TZ: America/Vancouver
+
+    steps:
+      - run: |
+          echo "Free space before:"
+          set -x
+          pwd
+          df -h
+          df -i
+          df -h .
+          df -i .
+
+      - name: Make more room by deleting unused software
+        if: ${{ github.event_name != 'schedule' }}
+        run: |
+          set -x
+          df -h
+          sudo eatmydata rm -rf /usr/share/dotnet       # 24.1 GB
+          sudo eatmydata rm -rf /usr/local/lib/android  # 11.3 GB
+          sudo eatmydata rm -rf /opt/ghc                #  1.8 GB
+          #sudo eatmydata rm -rf /usr/share/swift        # 1.3 GB
+          #sudo eatmydata rm -rf /usr/local/graalvm      # 1.0 GB
+          df -h
+
+#      - name: Maximize build space and inodes
+#        uses: OpenDRR/maximize-build-space@many-inodes
+#        with:
+#          root-reserve-mb: 512
+#          swap-size-mb: 100
+#          remove-dotnet: true
+#          remove-android: true
+#          remove-haskell: true
+
+      - run: |
+          echo "Free space after:"
+          set -x
+          pwd
+          df -h
+          df -i
+          df -h .
+          df -i .
+
+      - name: Checkout 
+        uses: actions/checkout@v4
+
+      - name: Extract artifact.tar which contains the vector map tiles
+        run: |
+          set -x
+          ls -l
+          tileset="$(basename *.7z.001 .7z.001)"
+          time eatmydata 7z x "$tileset.7z.001"
+
+      - name: Append a landing index.html to artifact
+        run: |
+          ls -l artifact.tar
+          tar -rf artifact.tar ./index.html
+          ls -l artifact.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-pages
+          path: artifact.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  # Deployment job
+  deploy:
+    # Add a dependency to the build job
+    needs: build
+
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write
+      id-token: write
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
